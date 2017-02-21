@@ -44,7 +44,7 @@ install:
 script:
   - | 
     if [ "$RUN_TESTS" = "true" ] ; then
-        GitCATS/gitcats.py --participant "$TRAVIS_PULL_REQUEST_BRANCH" --loglevel=debug
+        GitCATS/gitcats.py --participant "$TRAVIS_PULL_REQUEST_BRANCH" --loglevel=info
     else
         if [ "$TRAVIS_PULL_REQUEST_BRANCH" = "" ] ; then
             echo "Don't run tests for pushs, but only for PRs from participant branchs."

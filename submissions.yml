@@ -1,6 +1,9 @@
 ############################################################
 # Definition of Submissions
 #
+#% EXAMPLE FILE---DO NOT EDIT in GitCATS subdirectory
+#% The active configuration file is found in the root directory
+#%
 # * defines the submissions that should be tested and records acceptance status.
 # * defines further details about the submission like their language.
 #

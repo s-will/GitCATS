@@ -1,7 +1,10 @@
 ########################################
 # Participants
 #
-# list of participants with github accounts and clear names
+#% EXAMPLE FILE---DO NOT EDIT in GitCATS subdirectory
+#% The active configuration file is found in the root directory
+#%
+# List of participants with github accounts and clear names
 # 
 participants:
     s-will: Sebastian Will

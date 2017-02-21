@@ -1,6 +1,9 @@
 ############################################################
 # Definition of Languages
 #
+#% EXAMPLE FILE---DO NOT EDIT in GitCATS subdirectory
+#% The active configuration file is found in the root directory
+#%
 # define 'languages' with compiling and calling instructions
 #
 # Be aware: it's easy to break this 

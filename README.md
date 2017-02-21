@@ -16,13 +16,16 @@ automatize test runs and reviewing. The entire process is public such
 that all students can see the submissions of others; intentionally, no
 attempts for privacy are made.
 
+
+----------------------------------------
 Main features:
+----------------------------------------
 
  * configurable via yml files
      assignments.yml  languages.yml  participants.yml  submissions.yml
    Commented examples are provided.
 
- * ready to be loaded as submodule into git repository
+ * ready to be loaded as subtree into git repository
 
  * multiple users/"participants", multiple languages
 
@@ -34,19 +37,46 @@ Main features:
 
 
 ----------------------------------------
-Installing and using this framework
+Installing the framework
 ----------------------------------------
 
-* In a new class repository (put on github), add this repository as submodule:
-
-  git submodule add git@github.com:s-will/GitCATS.git
-
-  and commit this like
-
-  git commit -am "Add submodule GitCATS"
-
+* In the class repository, add this repository as subtree
+```
+    git remote add gitcats git@github.com:s-will/GitCATS.git
+    git subtree add --prefix GitCATS --squash gitcats master
+```
 * Link .travis from the GitCATS directory into the root directory of your repository
-
+```
+    ln -s GitCATS/.travis.yml .
+```
 * Copy all example yaml configuration files from GitCATS to the root
-  directory and edit them for your purposes
+  directory; remove the 'DO NOT EDIT' warning; and then edit them for
+  your purposes
+```
+    cp GitCATS/*.yml .
+    sed -i '/^#%.*/ d' assignments.yml  languages.yml  participants.yml  submissions.yml
+```
+* on Github register the repository for Travis CI
 
+
+----------------------------------------
+Using the framework
+----------------------------------------
+
+* register participants in participants.yml (better, let them register)
+
+* edit assignments.yml to define new assignments and tests
+
+  make assignment directories
+  place test input and output in the assignment directories
+  
+* if necessary, define new languages in languages.yml (and possibly contribute to the project)
+
+* let students clone the repo and create their participants branches 
+  (those branches are named by their registered short-name, usually the github name)
+
+* let students solve the assignemnts, submit, and register there submissions in submissions.yml
+
+* let students make pull requests for their participant branches into the master
+
+* discuss PRs via github; after acceptance, let students set checked to true (to avoid further tests) and merge into master

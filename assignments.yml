@@ -1,6 +1,9 @@
 ########################################
 # Assignments
 #
+#% EXAMPLE FILE---DO NOT EDIT in GitCATS subdirectory
+#% The active configuration file is found in the root directory
+#%
 # Description of assigment and their tests
 #
 # Tests run the submitted programs given an input file (and optional
