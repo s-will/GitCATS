@@ -1,0 +1,46 @@
+############################################################
+# Definition of Languages
+#
+# define 'languages' with compiling and calling instructions
+#
+# Be aware: it's easy to break this 
+#
+# suffixes are used for constructing program names in calls and compilation
+# calls and checking the existence of the program
+#
+languages:
+    default: # assume the submission can be called directly 
+             # (use this for scripts with shebang; don't submit binaries!)
+        suffix: ''
+    python:
+        call: 'python {name}{suffix}'
+        suffix: .py
+    python2:
+        conda-install: python<3
+        call: 'python {name}{suffix}'
+        suffix: .py
+    perl:
+        call: 'perl {name}{suffix}'
+        suffix: .pl
+    bash:
+        call: 'bash {name}{suffix}'
+        suffix: .sh
+    c++:
+        conda-install: gcc
+        compile: 'g++ {name}{suffix} -o {name}'
+        call: './{name}'
+        suffix: '.cc'
+    c++11:
+        conda-install: gcc
+        compile: g++ --std='c++11' {name}{suffix} -o {name}
+        call: './{name}'
+        suffix: '.cc'
+    haskell-ghc:
+        conda-install: ghc
+        compile: ghc {name}{suffix} -o {name}
+        call: './{name}'
+        suffix: '.hs'
+    rscript:
+        conda-install: r
+        call: 'Rscript {name}{suffix}'
+        suffix: '.R'

@@ -1,0 +1,55 @@
+# This file is part of
+#
+# GitCATS --- Git-based Class Assignment Testing System
+#
+# Copyright Sebastian Will, 2017
+#
+#
+# This travis script performs the following actions:
+#
+# For pull requests from branches named like a registered participant
+#    prepare conda environment
+#    call gitcats.py, which implements all main functionality
+# Otherwise, inform user.
+#
+
+os:
+- linux
+
+language: generic
+
+sudo: false
+
+install:
+  # short cut: skip test on non-participant branches
+  - |
+    RUN_TESTS=true
+    if [ "$TRAVIS_PULL_REQUEST" = "false" ] || ! grep -w "$TRAVIS_PULL_REQUEST_BRANCH:" participants.yml
+    then
+        RUN_TESTS=false
+    fi
+  
+  # install conda
+  - | 
+    if [ "$RUN_TESTS" = "true" ] ; then
+        wget http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+        chmod +x miniconda.sh
+        ./miniconda.sh -b
+        export CONDA_PATH=$HOME/miniconda3
+        export PATH=$CONDA_PATH/bin:$PATH
+        conda update --yes conda
+        conda install --yes -c anaconda pyyaml
+    fi
+
+script:
+  - | 
+    if [ "$RUN_TESTS" = "true" ] ; then
+        GitCATS/gitcats.py --participant "$TRAVIS_PULL_REQUEST_BRANCH" --loglevel=debug
+    else
+        if [ "$TRAVIS_PULL_REQUEST_BRANCH" = "" ] ; then
+            echo "Don't run tests for pushs, but only for PRs from participant branchs."
+        else
+            echo "Don't run tests for pull requests from branch \"$TRAVIS_PULL_REQUEST_BRANCH\", since this branch name"
+            echo "is not registered as participant name."
+        fi
+    fi

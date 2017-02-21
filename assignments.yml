@@ -1,0 +1,17 @@
+########################################
+# Assignments
+#
+# Description of assigment and their tests
+#
+# Tests run the submitted programs given an input file (and optional
+# arguments).  The output to standard out is checked, usually by
+# comparison to an output file.
+#
+# By default, tests are mandatory (optional:false), i.e. they have to be passed
+#
+assignments:
+## Series 1: Warm up
+  - name: HelloWorld
+    directory: A0
+    tests:
+      - name: test1

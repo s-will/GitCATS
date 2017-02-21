@@ -1,0 +1,36 @@
+############################################################
+# Definition of Submissions
+#
+# * defines the submissions that should be tested and records acceptance status.
+# * defines further details about the submission like their language.
+#
+# Confer class-config.yml for names of assigments, participants.yml
+#   for registered participants, and languages.yml for available
+#   languages; in case, add the specification for yet undefined
+#   languages
+
+
+submissions:
+    HelloWorld:
+        # example submission for HelloWorld example assignment;
+        # registers HelloWorld-s_will.sh in the "HelloWorld" assignment directory for testing
+        s-will:
+            # define the language of the submission (see
+            # languages.yml); this controls whether and how the
+            # program is compiled and how it is invoked 
+            language: bash
+
+            # set 'checked' to true to turn off further ci tests
+            checked:  false
+
+########################################
+# Note on program submission
+#
+# program names are automatically derived from the assignment name and
+# the participant names like
+#
+#  HelloWorld_s-will.py or HelloWorld_s-will.pl
+#
+# Submitted programs must reside in the respective assignment
+# directories (see assigments.yml)
+#
