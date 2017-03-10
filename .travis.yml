@@ -24,6 +24,7 @@ addons:
   apt:
     packages:
     - ghc
+    - cabal-install
 
 install:
   # short cut: skip test on non-participant branches
