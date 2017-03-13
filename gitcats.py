@@ -139,7 +139,8 @@ def create_conda_env(submission, the_conda_environments, configuration):
         conda_env_name = derive_conda_env_name(language)
         
         if conda_env_name in the_conda_environments:
-            return
+            return True
+
         the_conda_environments[conda_env_name]=True
 
         logging.debug("Setup conda environment for "+language_name+" in "+conda_env_name)
@@ -162,7 +163,7 @@ def cleanup_conda_env(conda_env_name):
     logging.debug("Cleanup conda environment "+conda_env_name)
     subprocess.call("conda env remove >/dev/null -y -n "+conda_env_name, shell=True)
 
-def compile_submission(participant_name,submission_name,configuration):
+def compile_submission(participant_name,submission_name,the_conda_environments,configuration):
     """
     Run the compilation for a submission
     @param submission the submission dictionary (of a participant)
@@ -181,12 +182,32 @@ def compile_submission(participant_name,submission_name,configuration):
     directory=assignment["directory"]
     
     if "compile" in language:
+        prog_name = make_program_name(participant_name,submission_name)
         compile_command = language["compile"].format(
-            name=make_program_name(participant_name,submission_name),
+            name=prog_name,
             suffix=language["suffix"]
         )
+
+        conda_env_name = derive_conda_env_name(language)
+
+        shell_script = list()
+
+        shell_script.append( "cd "+directory )
+        if conda_env_name in the_conda_environments:
+                shell_script.append( "source activate "+conda_env_name )
+
+        shell_script.append(compile_command)
+
+        if conda_env_name in the_conda_environments:
+                shell_script.append( "source deactivate "+conda_env_name )
+
+        shell_script = ("bash -s <<EOF\n"
+                        + "\n".join(shell_script)
+                        + "\nEOF")
+
         try:
-            subprocess.check_call("cd "+directory+"; "+compile_command,shell=True)
+            logging.debug("Execute shell script to compile "+prog_name+":\n"+shell_script)
+            subprocess.check_call(shell_script,shell=True)
         
         except subprocess.CalledProcessError as exc:
             logging.warning("Exception subprocess.CalledProcessError raised while running test.")
@@ -327,7 +348,7 @@ def check_submission(participant_name, submission_name, configuration):
     checks whether program exists, correct language specified etc...
     @return whether submission is valid for testing
     """
-    logging.debug("Check submission "+str(submission_name)+" of "+participant_name)
+    logging.debug("Check validity of submission "+str(submission_name)+" of "+participant_name)
     
     submission = configuration["submissions"][submission_name][participant_name]
     
@@ -422,7 +443,7 @@ def main( args ):
             not create_conda_env(submission, the_conda_environments, configuration)):
             test_assignments.remove(submission_name)
             failed_submissions.append([submission_name,"DEPENDENCY_FAILED"])
-        elif not compile_submission(participant_name,submission_name,configuration):
+        elif not compile_submission(participant_name, submission_name, the_conda_environments, configuration):
             test_assignments.remove(submission_name)
             failed_submissions.append([submission_name,"COMPILE_FAILED"])          
 
