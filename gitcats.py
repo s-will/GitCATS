@@ -352,6 +352,9 @@ def check_submission(participant_name, submission_name, configuration):
     
     submission = configuration["submissions"][submission_name][participant_name]
     
+    if submission is None:
+        return False
+
     for assignment in configuration["assignments"]:
         languages=configuration["languages"]
         
