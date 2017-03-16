@@ -7,7 +7,7 @@
 #
 # This travis script performs the following actions:
 #
-# For pull requests from branches named like a registered participant
+# For pull requests from branches named like a registered participant (or particpant#something)
 #    prepare conda environment
 #    call gitcats.py, which implements all main functionality
 # Otherwise, inform user.
