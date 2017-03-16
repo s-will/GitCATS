@@ -289,15 +289,16 @@ def run_test(test_spec,test_results,the_conda_environments,configuration):
                 shell_script.append("source activate "+conda_env_name)
 
         shell_script.append("cd "+directory)
+        shell_script.append("set -o pipefail")
 
-        program_call_command = program_call +" {arguments} {infile}".format(**testcall_params)
+        program_call_command = "time "+program_call +" {arguments} {infile}".format(**testcall_params)
 
-        check_command = "diff - {outfile}".format(**testcall_params)
+        check_command = "diff -d -y --suppress-common-lines - {outfile} | head -n10".format(**testcall_params)
         if exists_and_defined("check", language):
             check_command = language["check"].format(**testcall_params)
-                
-        logging.debug("Program call: "+program_call_command)
-        logging.debug("Check by: | "+check_command)
+
+        logging.info("Program call: "+program_call_command)
+        logging.info("Check by:     | "+check_command)
         shell_script.append(program_call_command + " | " + check_command)
 
         shell_script = ("bash -s <<EOF\n"
@@ -309,12 +310,12 @@ def run_test(test_spec,test_results,the_conda_environments,configuration):
         subprocess.check_call(shell_script, shell=True, stderr=subprocess.STDOUT)
         
     except subprocess.CalledProcessError as exc:
-        logging.warning("Exception subprocess.CalledProcessError raised while running test.")
+        logging.debug("Test call failed or does not produce expected result.")
         logging.debug(exc)
         status = fail_status
         
     except FileNotFoundError as exc:
-        logging.warning("Exception FileNotFoundError raised while running test.")
+        logging.warning("Test call failed (file not found).")
         logging.debug(exc)
         status = fail_status
     
