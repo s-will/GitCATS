@@ -291,7 +291,7 @@ def run_test(test_spec,test_results,the_conda_environments,configuration):
         shell_script.append("cd "+directory)
         shell_script.append("set -o pipefail")
 
-        program_call_command = program_call +" {arguments} {infile}".format(**testcall_params)
+        program_call_command = "time "+program_call +" {arguments} {infile}".format(**testcall_params)
 
         check_command = "diff -d -y --suppress-common-lines - {outfile} | head -n10".format(**testcall_params)
         if exists_and_defined("check", language):
