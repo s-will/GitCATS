@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 
-"""
-This script is part of
+"""This script is part of
 
 GitCATS --- Git-based Class Assignment Testing System
 
-The script supports automatic testing of class assignments (for offline
-use or CI testing.)
+The script supports automatic testing of class assignments (for
+offline use or CI testing.)
 
 Main features:
 
@@ -14,13 +13,69 @@ Main features:
 
  * multiple users/"participants", multiple languages
 
- * potential language-specific dependencies are installed on demand via conda 
+ * potential language-specific dependencies are installed on demand
+   via conda
 
  * multiple assignments, multiple tests per assignments
 
  * default testing by diff to expected output
 
+ * support multiple submissions per assignment per user
+
+    - allows /lists of submissions/ in
+      submissions.$assignment_name.$partiticipant_name
+
+    - consequently, submission filenames change to
+      ${partiticipant_name}-${submission_index}-${assignment_name}.$suffix
+      where ${submission_index} is a the index 0,... in the list of
+      submissions
+
 Copyright Sebastian Will, 2017
+
+
+IDEAS for extensions:
+
+ * support more flexible installation of dependencies
+
+    - idea: support apt installation of required dependencies (besides conda)
+
+        - issues: apt requires sudo, but this limits Travis; moreover
+          gitcats.py should not run with sudo rights (which requires
+          separate installation)
+        - btw, can one generate the travis script on-the-fly?
+
+ * support different tests (of the same program run; when it does not fail)
+
+    - motivation: testing for 'almost' correct output could help to to
+      identify still existing problems (correctness up to whitespace
+      errors, order of solutions, non-canonical representation,
+      redundancy of solutions...)
+
+    - allow list of checks in the test record of the assignment,
+      i.e. in assignments[i].tests[j].check for each check, support
+      entries 'description' and 'command'.  Tests are hierarchical,
+      i.e. test until one of the test fails or all tests are passed;
+      print test description followed by 'OK' or 'FAIL' (unless all
+      tests succeed.)
+
+  This could look like
+
+assignments:
+  - name: Administration
+    directory: A2
+    tests:
+      - name: test1
+        check:
+          - description: "Are all solutions generated?"
+            command: ...
+          - description: "Are exactly the expected solutions generated, but not necessarily unique?"
+            command: ...
+          - description: "Are exactly the expected solutions generated, but possibly in the wrong order?"
+            command: ...
+          - description: "Is the exactly the expected output generated, allowing whitespace errors?" 
+            ...
+          - description: "Is the exactly the expected output generated?" 
+            ...
 
 """
 
@@ -72,8 +127,11 @@ def exists_and_defined(k,h):
 def is_executable(fpath):
     return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
 
-def make_program_name(participant_name,submission_name):
-    return "-".join([participant_name,submission_name])
+def make_program_name(participant_name, submission_name, submission_index):
+    if submission_index==0:
+        return "-".join([participant_name,submission_name])
+    else:
+        return "-".join([participant_name,str(submission_index),submission_name])
 
 def get_feature(d,key,default):
     """
@@ -104,7 +162,7 @@ def lookup_assignment(assignment_name,configuration):
             return a
     return  None
 
-def enumerate_tests(participant_name,assignment,the_tests):
+def enumerate_tests(participant_name, assignment, submission_index, the_tests):
     """
     Enumerate the tests that must be performed for an assignment
     @param participant_name name of the participant
@@ -121,7 +179,7 @@ def enumerate_tests(participant_name,assignment,the_tests):
         return
 
     for test_id,test in enumerate(tests):
-        the_tests.append([participant_name,assignment,test_id,test])
+        the_tests.append([participant_name,assignment,submission_index,test_id,test])
 
 def create_conda_env(submission, the_conda_environments, configuration):
     """
@@ -163,7 +221,11 @@ def cleanup_conda_env(conda_env_name):
     logging.debug("Cleanup conda environment "+conda_env_name)
     subprocess.call("conda env remove >/dev/null -y -n "+conda_env_name, shell=True)
 
-def compile_submission(participant_name,submission_name,the_conda_environments,configuration):
+def compile_submission(participant_name,
+                       submission_name,
+                       submission_index,
+                       the_conda_environments,
+                       configuration):
     """
     Run the compilation for a submission
     @param submission the submission dictionary (of a participant)
@@ -171,9 +233,11 @@ def compile_submission(participant_name,submission_name,the_conda_environments,c
     @return success status
     """
     
-    logging.debug("Compile submission "+submission_name+" of "+participant_name)
+    logging.debug("Compile submission "+submission_name
+                  +" "+str(submission_index)
+                  +" of "+participant_name)
 
-    submission=configuration["submissions"][submission_name][participant_name]
+    submission=configuration["submissions"][submission_name][participant_name][submission_index]
     assignment=lookup_assignment(submission_name,configuration)
 
     language_name = get_submission_language(submission)
@@ -182,7 +246,7 @@ def compile_submission(participant_name,submission_name,the_conda_environments,c
     directory=assignment["directory"]
     
     if "compile" in language:
-        prog_name = make_program_name(participant_name,submission_name)
+        prog_name = make_program_name(participant_name, submission_name, submission_index)
         compile_command = language["compile"].format(
             name=prog_name,
             suffix=language["suffix"]
@@ -194,12 +258,12 @@ def compile_submission(participant_name,submission_name,the_conda_environments,c
 
         shell_script.append( "cd "+directory )
         if conda_env_name in the_conda_environments:
-                shell_script.append( "source activate "+conda_env_name )
+            shell_script.append( "source activate "+conda_env_name )
 
         shell_script.append(compile_command)
 
         if conda_env_name in the_conda_environments:
-                shell_script.append( "source deactivate "+conda_env_name )
+            shell_script.append( "source deactivate "+conda_env_name )
 
         shell_script = ("bash -s <<EOF\n"
                         + "\n".join(shell_script)
@@ -224,7 +288,7 @@ def compile_submission(participant_name,submission_name,the_conda_environments,c
 def run_test(test_spec,test_results,the_conda_environments,configuration):
     """
     Run tests for an assignment
-    @param test_spec = [participant_name, assignment,test_id,test]
+    @param test_spec = [participant_name, assignment, submission_index, test_id, test]
     @subparam participant_name name of the participant
     @subparam assignment the assignment record
     @subparam test_id index of the test
@@ -235,7 +299,7 @@ def run_test(test_spec,test_results,the_conda_environments,configuration):
     @todo merge with run_test
     """
 
-    [participant_name, assignment, test_id, test] = test_spec
+    [participant_name, assignment, submission_index, test_id, test] = test_spec
 
     assignment_name = assignment["name"]
     
@@ -243,7 +307,7 @@ def run_test(test_spec,test_results,the_conda_environments,configuration):
     fail_status = "failed" if get_feature(test,"optional",False) else "FAILED" 
     
     assignment_name = assignment["name"]
-    submission = configuration["submissions"][assignment_name][participant_name]
+    submission = configuration["submissions"][assignment_name][participant_name][submission_index]
 
     test_descr=str(test_id+1)
     if not "name" in test:
@@ -254,7 +318,7 @@ def run_test(test_spec,test_results,the_conda_environments,configuration):
 
     directory = assignment["directory"]
         
-    program_name = make_program_name(participant_name,assignment_name)
+    program_name = make_program_name(participant_name, assignment_name, submission_index)
     
     ## check language of submission
     language_name=submission["language"] if "language" in submission else "default"
@@ -294,8 +358,8 @@ def run_test(test_spec,test_results,the_conda_environments,configuration):
         program_call_command = "time "+program_call +" {arguments} {infile}".format(**testcall_params)
 
         check_command = "diff -d -y --suppress-common-lines - {outfile} | head -n10".format(**testcall_params)
-        if exists_and_defined("check", language):
-            check_command = language["check"].format(**testcall_params)
+        if exists_and_defined("check", test):
+            check_command = test["check"].format(**testcall_params)
 
         logging.info("Program call: "+program_call_command)
         logging.info("Check by:     | "+check_command)
@@ -327,6 +391,7 @@ def run_test(test_spec,test_results,the_conda_environments,configuration):
     test_results.append({
         "participant_name": participant_name,
         "assignment_name": assignment_name,
+        "submission_index": submission_index,
         "test_description": test_descr,
         "status": status
     })
@@ -342,17 +407,20 @@ def syntax_checks(configuration):
                 logging.error("Missing required feature "+feature+" in assignment "+str(assignment_index+1)+"!")
                 exit(-1);
 
-def check_submission(participant_name, submission_name, configuration):
+def check_submission(participant_name, submission_name, submission_index, configuration):
     """
     Check submission configuration
     
     checks whether program exists, correct language specified etc...
     @return whether submission is valid for testing
     """
-    logging.debug("Check validity of submission "+str(submission_name)+" of "+participant_name)
-    
-    submission = configuration["submissions"][submission_name][participant_name]
-    
+    submission = configuration["submissions"][submission_name][participant_name][submission_index]
+
+    logging.debug("Check validity of submission "+str(submission_name)
+                  +" "+str(submission_index)
+                  +" of "+participant_name
+                  +": "+str(submission))
+        
     if submission is None:
         return False
 
@@ -373,7 +441,9 @@ def check_submission(participant_name, submission_name, configuration):
             directory = assignment["directory"]
             
             program_name = os.path.join(directory,
-                                        make_program_name(participant_name,submission_name))
+                                        make_program_name(participant_name,
+                                                          submission_name,
+                                                          submission_index))
             program_name = program_name+suffix
                 
             if not os.path.isfile(program_name):
@@ -422,13 +492,19 @@ def main( args ):
     for submission_name in configuration["submissions"]:
         submission = configuration["submissions"][submission_name]
         if submission is not None and participant_name in submission:
-            # check general validity of participant's submissions
-            if check_submission(participant_name, submission_name, configuration):
-                # check whether submission needs testing
-                if not exists_and_equals("checked", submission[participant_name], True):
-                    test_assignments.append(submission_name)
-            else:
-                failed_submissions.append([submission_name,"INVALID"])
+            if not isinstance(submission[participant_name],list):
+                submission[participant_name] = [ submission[participant_name] ]
+
+            for submission_index in range(0,len(submission[participant_name])):
+                # check general validity of participant's submissions
+                if check_submission(participant_name, submission_name, submission_index, configuration):
+                    # check whether submission needs testing
+                    if not exists_and_equals("checked",
+                                             submission[participant_name][submission_index],
+                                             True):
+                        test_assignments.append((submission_name, submission_index))
+                else:
+                    failed_submissions.append([submission_name, submission_index, "INVALID"])
 
     if len(test_assignments)>0:
         logging.info("Perform tests for submissions "+str(test_assignments))
@@ -440,23 +516,27 @@ def main( args ):
     # for the un-tested submissions, 
     #   setup conda environments 
     #   and compile if necessary
-    for submission_name in test_assignments:
-        submission=configuration["submissions"][submission_name][participant_name]
+    for (submission_name, submission_index) in test_assignments:
+        submission=configuration["submissions"][submission_name][participant_name][submission_index]
         assignment=lookup_assignment(submission_name,configuration)
         if (not args.skip_depends and 
             not create_conda_env(submission, the_conda_environments, configuration)):
-            test_assignments.remove(submission_name)
+            test_assignments.remove((submission_name, submission_index))
             failed_submissions.append([submission_name,"DEPENDENCY_FAILED"])
-        elif not compile_submission(participant_name, submission_name, the_conda_environments, configuration):
-            test_assignments.remove(submission_name)
-            failed_submissions.append([submission_name,"COMPILE_FAILED"])          
+        elif not compile_submission(participant_name, submission_name, submission_index,
+                                    the_conda_environments, configuration):
+            test_assignments.remove((submission_name, submission_index))
+            failed_submissions.append((submission_name,
+                                       submission_index,
+                                       "COMPILE_FAILED"))          
 
 
     ## determine the tests that we want to perform
     the_tests = list()
     for assignment in configuration["assignments"]:
-        if assignment["name"] in test_assignments:
-            enumerate_tests(participant_name,assignment,the_tests)
+        for (test_assignment, submission_index) in test_assignments:
+            if assignment["name"] == test_assignment:
+                enumerate_tests(participant_name, assignment, submission_index, the_tests)
     
 
     # perform tests for the (valid) un-tested submissions
@@ -482,12 +562,13 @@ def main( args ):
     exit_val=0
     all_ok=True
     
-    row_format_string="{participant_name:16} {assignment_name:16} {test_description:16} {status:6}"
+    row_format_string="{participant_name:16} {assignment_name:16} {submission_index:2} {test_description:16} {status:6}"
 
     if len(test_results)>0 or len(failed_submissions)>0:
         summary_table.append(row_format_string.format(
             participant_name="PARTICIPANT",
             assignment_name="ASSIGNMENT",
+            submission_index="ID",
             test_description="TEST",
             status="STATUS"
         ))
@@ -498,10 +579,11 @@ def main( args ):
         if entry["status"] == "FAILED":
             all_ok = False
             
-    for [submission_name,fail_status] in failed_submissions:
+    for (submission_name, submission_index, fail_status) in failed_submissions:
         summary_table.append(row_format_string.format(
             participant_name=participant_name,
             assignment_name=submission_name,
+            submission_index=submission_index,
             test_description="*",
             status=fail_status
         ))
