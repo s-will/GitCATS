@@ -305,7 +305,9 @@ def run_test(test_spec,test_results,the_conda_environments,configuration):
     
     status="OK" # be optimistic;)
     fail_status = "failed" if get_feature(test,"optional",False) else "FAILED" 
-    
+   
+    timeout=get_feature(test,"timeout",None)
+
     assignment_name = assignment["name"]
     submission = configuration["submissions"][assignment_name][participant_name][submission_index]
 
@@ -332,8 +334,9 @@ def run_test(test_spec,test_results,the_conda_environments,configuration):
                                                                suffix))
     testcall_params={'name': program_name,
                      'suffix': suffix,
-                     'infile': assignment_name+"-"+test_descr+".in", 
-                     'outfile': assignment_name+"-"+test_descr+".out",
+                     'infile': assignment_name+"-"+test_descr+".in",
+                     'outfile': assignment_name+"-"+test_descr+".out", # expected output file
+                     'genfile': assignment_name+"-"+test_descr+".gen", # generated output file
                      'arguments': get_feature(test,"arguments","")}
 
     program_call = os.path.join(".",program_name)
@@ -354,29 +357,51 @@ def run_test(test_spec,test_results,the_conda_environments,configuration):
 
         shell_script.append("cd "+directory)
         shell_script.append("set -o pipefail")
+        
+        if timeout is not None:
+            timeout_call = "timeout " + timeout + " "
+        else:
+            timeout_call = ""
 
-        program_call_command = "time "+program_call +" {arguments} {infile}".format(**testcall_params)
+        program_call_command = ("time "
+                                +timeout_call
+                                +program_call
+                                +" {arguments} {infile} > {genfile}".format(**testcall_params))
 
-        check_command = "diff -d -y --suppress-common-lines - {outfile} | head -n10".format(**testcall_params)
+        check_command = "diff -d -y --suppress-common-lines {genfile} {outfile} | head -n10".format(**testcall_params)
         if exists_and_defined("check", test):
             check_command = test["check"].format(**testcall_params)
 
         logging.info("Program call: "+program_call_command)
-        logging.info("Check by:     | "+check_command)
-        shell_script.append(program_call_command + " | " + check_command)
+        logging.info("Check by:     "+check_command)
+        if timeout is not None:
+            logging.info("Timeout: "+timeout)
 
-        shell_script = ("bash -s <<EOF\n"
-                        + "\n".join(shell_script)
+        prog_call_script = list(shell_script)
+        prog_call_script.append(program_call_command)
+        prog_call_script = ("bash -s <<EOF\n"
+                        + "\n".join(prog_call_script)
                         + "\nEOF")
-
-        logging.debug("Execute shell script\n"+shell_script)
+        logging.debug("Execute shell script\n"+prog_call_script)
+        subprocess.check_call(prog_call_script, shell=True)
         
-        subprocess.check_call(shell_script, shell=True, stderr=subprocess.STDOUT)
+        test_call_script = list(shell_script)
+        test_call_script.append(check_command)
+        test_call_script = ("bash -s <<EOF\n"
+                        + "\n".join(test_call_script)
+                        + "\nEOF")
+        logging.debug("Execute shell script\n"+test_call_script)
+
+        subprocess.check_call(test_call_script, shell=True)
         
     except subprocess.CalledProcessError as exc:
-        logging.debug("Test call failed or does not produce expected result.")
-        logging.debug(exc)
-        status = fail_status
+        if exc.returncode==124:
+            logging.debug("Test call timed out.")
+            status = fail_status+" (time out)"
+        else:
+            logging.debug("Test call failed or does not produce expected result.")
+            logging.debug(exc)
+            status = fail_status
         
     except FileNotFoundError as exc:
         logging.warning("Test call failed (file not found).")
@@ -576,7 +601,7 @@ def main( args ):
     
     for entry in test_results:
         summary_table.append(row_format_string.format(**entry))
-        if entry["status"] == "FAILED":
+        if entry["status"][0:6] == "FAILED":
             all_ok = False
             
     for (submission_name, submission_index, fail_status) in failed_submissions:
