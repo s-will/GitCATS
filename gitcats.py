@@ -181,6 +181,18 @@ def enumerate_tests(participant_name, assignment, submission_index, the_tests):
     for test_id,test in enumerate(tests):
         the_tests.append([participant_name,assignment,submission_index,test_id,test])
 
+def check_call_bash_script(shell_script):
+    """Run bash shell script after wrapping it in bash call
+    @param shell_script multiline shell script as list of lines
+    """
+    logging.debug("Execute shell script\n"
+                  +"\n".join(shell_script))
+    wrapped_shell_script = ("bash -s <<EOF\n"
+                    + "\n".join(shell_script)
+                    + "\nEOF")
+    subprocess.check_call(wrapped_shell_script,shell=True)
+
+
 def create_conda_env(submission, the_conda_environments, configuration):
     """
     Create the conda environment for the test, unless it exists already.
@@ -265,13 +277,9 @@ def compile_submission(participant_name,
         if conda_env_name in the_conda_environments:
             shell_script.append( "source deactivate "+conda_env_name )
 
-        shell_script = ("bash -s <<EOF\n"
-                        + "\n".join(shell_script)
-                        + "\nEOF")
-
         try:
-            logging.debug("Execute shell script to compile "+prog_name+":\n"+shell_script)
-            subprocess.check_call(shell_script,shell=True)
+            logging.info("Compile "+prog_name)
+            check_call_bash_script(shell_script)
         
         except subprocess.CalledProcessError as exc:
             logging.warning("Exception subprocess.CalledProcessError raised while running test.")
@@ -363,36 +371,24 @@ def run_test(test_spec,test_results,the_conda_environments,configuration):
         else:
             timeout_call = ""
 
-        program_call_command = ("time "
-                                +timeout_call
-                                +program_call
-                                +" {arguments} {infile} > {genfile}".format(**testcall_params))
+        program_call_command = (program_call
+                                +" {arguments} {infile} >{genfile}".format(**testcall_params))
 
         check_command = "diff -d -y --suppress-common-lines {genfile} {outfile} | head -n10".format(**testcall_params)
         if exists_and_defined("check", test):
             check_command = test["check"].format(**testcall_params)
 
         logging.info("Program call: "+program_call_command)
-        logging.info("Check by:     "+check_command)
         if timeout is not None:
             logging.info("Timeout: "+timeout)
 
-        prog_call_script = list(shell_script)
-        prog_call_script.append(program_call_command)
-        prog_call_script = ("bash -s <<EOF\n"
-                        + "\n".join(prog_call_script)
-                        + "\nEOF")
-        logging.debug("Execute shell script\n"+prog_call_script)
-        subprocess.check_call(prog_call_script, shell=True)
-        
-        test_call_script = list(shell_script)
-        test_call_script.append(check_command)
-        test_call_script = ("bash -s <<EOF\n"
-                        + "\n".join(test_call_script)
-                        + "\nEOF")
-        logging.debug("Execute shell script\n"+test_call_script)
+        program_call_command = ("time "
+                                +timeout_call
+                                + program_call_command)
+        check_call_bash_script(shell_script+[program_call_command])
 
-        subprocess.check_call(test_call_script, shell=True)
+        logging.info("Check by: "+check_command)
+        check_call_bash_script(shell_script+[check_command])
         
     except subprocess.CalledProcessError as exc:
         if exc.returncode==124:
