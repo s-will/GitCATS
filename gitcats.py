@@ -362,6 +362,7 @@ def run_test(test_spec,test_results,the_conda_environments,configuration):
             conda_env_name = derive_conda_env_name(language)
             if conda_env_name in the_conda_environments:
                 shell_script.append("source activate "+conda_env_name)
+                shell_script.append("export LD_LIBRARY_PATH=$HOME/miniconda3/envs/"+conda_env_name+"/lib")
 
         shell_script.append("cd "+directory)
         shell_script.append("set -o pipefail")
