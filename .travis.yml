@@ -20,11 +20,14 @@ language: generic
 
 sudo: false
 
+env: BUILD=cabal CABALVER=1.24 GHCVER=8.0.2
 addons:
   apt:
     packages:
-    - ghc
-    - cabal-install
+      - cabal-install-1.24
+      - ghc-8.0.2
+    sources:
+      - hvr-ghc
 
 install:
   # short cut: skip test on non-participant branches
