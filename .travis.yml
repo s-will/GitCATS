@@ -36,6 +36,9 @@ install:
     then
         RUN_TESTS=false
     fi
+
+  # set ghc and cabal paths
+  - export PATH=/opt/ghc/8.0.2/bin:/opt/cabal/1.24/bin:$PATH
   
   # install conda
   - | 
