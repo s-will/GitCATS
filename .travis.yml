@@ -20,7 +20,6 @@ language: generic
 
 sudo: false
 
-env: BUILD=cabal CABALVER=1.24 GHCVER=8.0.2
 addons:
   apt:
     packages:
