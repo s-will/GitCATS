@@ -33,6 +33,8 @@ Main features:
 
  * multiple assignments, multiple tests per assignments
 
+ * multiple submissions per assignment per participant
+
  * default testing by diff to expected output
 
 
