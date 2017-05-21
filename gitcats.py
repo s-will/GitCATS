@@ -535,7 +535,7 @@ def main( args ):
                                              True):
                         test_assignments.append((submission_name, submission_id))
                 else:
-                    failed_submissions.append([submission_name, submission_id, "INVALID"])
+                    failed_submissions.append((submission_name, submission_id, "INVALID"))
 
     if len(test_assignments)>0:
         logging.info("Perform tests for submissions "+str(test_assignments))
@@ -553,7 +553,7 @@ def main( args ):
         if (not args.skip_depends and 
             not create_conda_env(submission, the_conda_environments, configuration)):
             test_assignments.remove((submission_name, submission_id))
-            failed_submissions.append([submission_name,"DEPENDENCY_FAILED"])
+            failed_submissions.append((submission_name, submission_id, "DEPENDENCY_FAILED"))
         elif not compile_submission(participant_name, submission_name, submission_id,
                                     the_conda_environments, configuration):
             test_assignments.remove((submission_name, submission_id))
@@ -593,7 +593,7 @@ def main( args ):
     exit_val=0
     all_ok=True
     
-    row_format_string="{participant_name:16} {assignment_name:16} {submission_id:5} {test_description:16} {status:6}"
+    row_format_string="{participant_name:16} {assignment_name:20} {submission_id:5} {test_description:16} {status:6}"
 
     if len(test_results)>0 or len(failed_submissions)>0:
         summary_table.append(row_format_string.format(
@@ -612,6 +612,7 @@ def main( args ):
             all_ok = False
             
     for (submission_name, submission_id, fail_status) in failed_submissions:
+        if submission_id is None: submission_id="-"
         summary_table.append(row_format_string.format(
             participant_name=participant_name,
             assignment_name=submission_name,
