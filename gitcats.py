@@ -22,13 +22,12 @@ Main features:
 
  * support multiple submissions per assignment per user
 
-    - allows /lists of submissions/ in
+    - allows /dictionaries of submissions/ in
       submissions.$assignment_name.$partiticipant_name
 
     - consequently, submission filenames change to
-      ${partiticipant_name}-${submission_index}-${assignment_name}.$suffix
-      where ${submission_index} is a the index 0,... in the list of
-      submissions
+      ${partiticipant_name}-${assignment_name}#${submission_id}.$suffix
+      where ${submission_id} is an identifier string
 
 Copyright Sebastian Will, 2017
 
@@ -127,11 +126,11 @@ def exists_and_defined(k,h):
 def is_executable(fpath):
     return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
 
-def make_program_name(participant_name, submission_name, submission_index):
-    if submission_index==0:
+def make_program_name(participant_name, submission_name, submission_id):
+    if submission_id is None or submission_id=="":
         return "-".join([participant_name,submission_name])
     else:
-        return "-".join([participant_name,str(submission_index),submission_name])
+        return "{}-{}#{}".format(participant_name,submission_name,submission_id)
 
 def get_feature(d,key,default):
     """
@@ -162,7 +161,7 @@ def lookup_assignment(assignment_name,configuration):
             return a
     return  None
 
-def enumerate_tests(participant_name, assignment, submission_index, the_tests):
+def enumerate_tests(participant_name, assignment, submission_id, the_tests):
     """
     Enumerate the tests that must be performed for an assignment
     @param participant_name name of the participant
@@ -179,7 +178,7 @@ def enumerate_tests(participant_name, assignment, submission_index, the_tests):
         return
 
     for test_id,test in enumerate(tests):
-        the_tests.append([participant_name,assignment,submission_index,test_id,test])
+        the_tests.append([participant_name,assignment,submission_id,test_id,test])
 
 def check_call_bash_script(shell_script):
     """Run bash shell script after wrapping it in bash call
@@ -235,7 +234,7 @@ def cleanup_conda_env(conda_env_name):
 
 def compile_submission(participant_name,
                        submission_name,
-                       submission_index,
+                       submission_id,
                        the_conda_environments,
                        configuration):
     """
@@ -246,10 +245,10 @@ def compile_submission(participant_name,
     """
     
     logging.debug("Compile submission "+submission_name
-                  +" "+str(submission_index)
+                  +" "+str(submission_id)
                   +" of "+participant_name)
 
-    submission=configuration["submissions"][submission_name][participant_name][submission_index]
+    submission=configuration["submissions"][submission_name][participant_name][submission_id]
     assignment=lookup_assignment(submission_name,configuration)
 
     language_name = get_submission_language(submission)
@@ -258,7 +257,7 @@ def compile_submission(participant_name,
     directory=assignment["directory"]
     
     if "compile" in language:
-        prog_name = make_program_name(participant_name, submission_name, submission_index)
+        prog_name = make_program_name(participant_name, submission_name, submission_id)
         compile_command = language["compile"].format(
             name=prog_name,
             suffix=language["suffix"]
@@ -296,7 +295,7 @@ def compile_submission(participant_name,
 def run_test(test_spec,test_results,the_conda_environments,configuration):
     """
     Run tests for an assignment
-    @param test_spec = [participant_name, assignment, submission_index, test_id, test]
+    @param test_spec = [participant_name, assignment, submission_id, test_id, test]
     @subparam participant_name name of the participant
     @subparam assignment the assignment record
     @subparam test_id index of the test
@@ -307,7 +306,7 @@ def run_test(test_spec,test_results,the_conda_environments,configuration):
     @todo merge with run_test
     """
 
-    [participant_name, assignment, submission_index, test_id, test] = test_spec
+    [participant_name, assignment, submission_id, test_id, test] = test_spec
 
     assignment_name = assignment["name"]
     
@@ -317,7 +316,7 @@ def run_test(test_spec,test_results,the_conda_environments,configuration):
     timeout=get_feature(test,"timeout",None)
 
     assignment_name = assignment["name"]
-    submission = configuration["submissions"][assignment_name][participant_name][submission_index]
+    submission = configuration["submissions"][assignment_name][participant_name][submission_id]
 
     test_descr=str(test_id+1)
     if not "name" in test:
@@ -328,7 +327,7 @@ def run_test(test_spec,test_results,the_conda_environments,configuration):
 
     directory = assignment["directory"]
         
-    program_name = make_program_name(participant_name, assignment_name, submission_index)
+    program_name = make_program_name(participant_name, assignment_name, submission_id)
     
     ## check language of submission
     language_name=submission["language"] if "language" in submission else "default"
@@ -413,7 +412,7 @@ def run_test(test_spec,test_results,the_conda_environments,configuration):
     test_results.append({
         "participant_name": participant_name,
         "assignment_name": assignment_name,
-        "submission_index": submission_index,
+        "submission_id": submission_id,
         "test_description": test_descr,
         "status": status
     })
@@ -429,17 +428,17 @@ def syntax_checks(configuration):
                 logging.error("Missing required feature "+feature+" in assignment "+str(assignment_index+1)+"!")
                 exit(-1);
 
-def check_submission(participant_name, submission_name, submission_index, configuration):
+def check_submission(participant_name, submission_name, submission_id, configuration):
     """
     Check submission configuration
     
     checks whether program exists, correct language specified etc...
     @return whether submission is valid for testing
     """
-    submission = configuration["submissions"][submission_name][participant_name][submission_index]
+    submission = configuration["submissions"][submission_name][participant_name][submission_id]
 
     logging.debug("Check validity of submission "+str(submission_name)
-                  +" "+str(submission_index)
+                  +" "+str(submission_id)
                   +" of "+participant_name
                   +": "+str(submission))
         
@@ -465,7 +464,7 @@ def check_submission(participant_name, submission_name, submission_index, config
             program_name = os.path.join(directory,
                                         make_program_name(participant_name,
                                                           submission_name,
-                                                          submission_index))
+                                                          submission_id))
             program_name = program_name+suffix
                 
             if not os.path.isfile(program_name):
@@ -482,6 +481,11 @@ def check_submission(participant_name, submission_name, submission_index, config
             return True
     logging.warn("Submission name "+submission_name+" is not defined as assignment name.")
     return False
+
+def isdictofdicts(x):
+    return ( isinstance(x,dict)
+             and all( [ isinstance(x[y],dict) for y in x ] )
+    )
 
 def main( args ):
     participant_name=args.participant
@@ -514,19 +518,24 @@ def main( args ):
     for submission_name in configuration["submissions"]:
         submission = configuration["submissions"][submission_name]
         if submission is not None and participant_name in submission:
-            if not isinstance(submission[participant_name],list):
-                submission[participant_name] = [ submission[participant_name] ]
+            
+            ## we allow dictionary submission entries to support multiple submissions to the same assignment
+            ## with different suffixes
+            ## At the same time, we still allow single submissions (without dict wrapping).
+            ## To handle both cases uniformly, we wrap unwrapped submission entries
+            if not isdictofdicts(submission[participant_name]):
+                submission[participant_name] = { None: submission[participant_name] }
 
-            for submission_index in range(0,len(submission[participant_name])):
+            for submission_id in submission[participant_name]:                
                 # check general validity of participant's submissions
-                if check_submission(participant_name, submission_name, submission_index, configuration):
+                if check_submission(participant_name, submission_name, submission_id, configuration):
                     # check whether submission needs testing
                     if not exists_and_equals("checked",
-                                             submission[participant_name][submission_index],
+                                             submission[participant_name][submission_id],
                                              True):
-                        test_assignments.append((submission_name, submission_index))
+                        test_assignments.append((submission_name, submission_id))
                 else:
-                    failed_submissions.append([submission_name, submission_index, "INVALID"])
+                    failed_submissions.append((submission_name, submission_id, "INVALID"))
 
     if len(test_assignments)>0:
         logging.info("Perform tests for submissions "+str(test_assignments))
@@ -538,27 +547,27 @@ def main( args ):
     # for the un-tested submissions, 
     #   setup conda environments 
     #   and compile if necessary
-    for (submission_name, submission_index) in test_assignments:
-        submission=configuration["submissions"][submission_name][participant_name][submission_index]
+    for (submission_name, submission_id) in test_assignments:
+        submission=configuration["submissions"][submission_name][participant_name][submission_id]
         assignment=lookup_assignment(submission_name,configuration)
         if (not args.skip_depends and 
             not create_conda_env(submission, the_conda_environments, configuration)):
-            test_assignments.remove((submission_name, submission_index))
-            failed_submissions.append([submission_name,"DEPENDENCY_FAILED"])
-        elif not compile_submission(participant_name, submission_name, submission_index,
+            test_assignments.remove((submission_name, submission_id))
+            failed_submissions.append((submission_name, submission_id, "DEPENDENCY_FAILED"))
+        elif not compile_submission(participant_name, submission_name, submission_id,
                                     the_conda_environments, configuration):
-            test_assignments.remove((submission_name, submission_index))
+            test_assignments.remove((submission_name, submission_id))
             failed_submissions.append((submission_name,
-                                       submission_index,
+                                       submission_id,
                                        "COMPILE_FAILED"))          
 
 
     ## determine the tests that we want to perform
     the_tests = list()
     for assignment in configuration["assignments"]:
-        for (test_assignment, submission_index) in test_assignments:
+        for (test_assignment, submission_id) in test_assignments:
             if assignment["name"] == test_assignment:
-                enumerate_tests(participant_name, assignment, submission_index, the_tests)
+                enumerate_tests(participant_name, assignment, submission_id, the_tests)
     
 
     # perform tests for the (valid) un-tested submissions
@@ -584,28 +593,30 @@ def main( args ):
     exit_val=0
     all_ok=True
     
-    row_format_string="{participant_name:16} {assignment_name:16} {submission_index:2} {test_description:16} {status:6}"
+    row_format_string="{participant_name:16} {assignment_name:20} {submission_id:5} {test_description:16} {status:6}"
 
     if len(test_results)>0 or len(failed_submissions)>0:
         summary_table.append(row_format_string.format(
             participant_name="PARTICIPANT",
             assignment_name="ASSIGNMENT",
-            submission_index="ID",
+            submission_id="ID",
             test_description="TEST",
             status="STATUS"
         ))
         summary_table.append("----------------------------------------------------------")
     
     for entry in test_results:
+        if entry['submission_id'] is None: entry['submission_id']=''
         summary_table.append(row_format_string.format(**entry))
         if entry["status"][0:6] == "FAILED":
             all_ok = False
             
-    for (submission_name, submission_index, fail_status) in failed_submissions:
+    for (submission_name, submission_id, fail_status) in failed_submissions:
+        if submission_id is None: submission_id="-"
         summary_table.append(row_format_string.format(
             participant_name=participant_name,
             assignment_name=submission_name,
-            submission_index=submission_index,
+            submission_id=submission_id,
             test_description="*",
             status=fail_status
         ))
@@ -654,7 +665,5 @@ if __name__=="__main__":
     logging.basicConfig(level=numeric_loglevel,
                         format='[%(levelname)s]\t%(message)s'
     )
-
-    
 
     main(args)
