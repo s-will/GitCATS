@@ -217,7 +217,7 @@ def create_conda_env(submission, the_conda_environments, configuration):
         conda_create_command="conda create"
         if not logging.getLogger().isEnabledFor(logging.DEBUG):
             conda_create_command += " >/dev/null"
-        conda_create_command += " -y -n "+conda_env_name+" \'"+language["conda-install"]+"\'"
+        conda_create_command += " -y -n "+conda_env_name+" "+language["conda-install"]
 
         try:
             subprocess.check_call(conda_create_command, shell=True)
