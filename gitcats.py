@@ -248,7 +248,7 @@ def compile_submission(participant_name,
                   +" "+str(submission_id)
                   +" of "+participant_name)
 
-    submission=configuration["submissions"][submission_name][participant_name][submission_id]
+    submission=configuration["submissions"][participant_name][submission_name][submission_id]
     assignment=lookup_assignment(submission_name,configuration)
 
     language_name = get_submission_language(submission)
@@ -316,7 +316,7 @@ def run_test(test_spec,test_results,the_conda_environments,configuration):
     timeout=get_feature(test,"timeout",None)
 
     assignment_name = assignment["name"]
-    submission = configuration["submissions"][assignment_name][participant_name][submission_id]
+    submission = configuration["submissions"][participant_name][assignment_name][submission_id]
 
     test_descr=str(test_id+1)
     if not "name" in test:
@@ -435,7 +435,14 @@ def check_submission(participant_name, submission_name, submission_id, configura
     checks whether program exists, correct language specified etc...
     @return whether submission is valid for testing
     """
-    submission = configuration["submissions"][submission_name][participant_name][submission_id]
+
+    logging.debug("Check validity of submission "+str(submission_name)
+                  +" "+str(submission_id)
+                  +" of "+participant_name
+                  +" in "+str(configuration["submissions"])
+    )
+
+    submission = configuration["submissions"][participant_name][submission_name][submission_id]
 
     logging.debug("Check validity of submission "+str(submission_name)
                   +" "+str(submission_id)
@@ -515,23 +522,27 @@ def main( args ):
 
     # determine un-tested submissions
     test_assignments=list()
-    for submission_name in configuration["submissions"]:
-        submission = configuration["submissions"][submission_name]
-        if submission is not None and participant_name in submission:
-            
+    if participant_name in configuration["submissions"]:
+        submission = configuration["submissions"][participant_name]
+        if submission is None:
+            submission = list()
+
+        for submission_name in submission:
+            the_submission = submission[submission_name]
             ## we allow dictionary submission entries to support multiple submissions to the same assignment
             ## with different suffixes
             ## At the same time, we still allow single submissions (without dict wrapping).
             ## To handle both cases uniformly, we wrap unwrapped submission entries
-            if not isdictofdicts(submission[participant_name]):
-                submission[participant_name] = { None: submission[participant_name] }
-
-            for submission_id in submission[participant_name]:                
+            if not isdictofdicts(the_submission):
+                the_submission = { None: the_submission }
+                configuration["submissions"][participant_name][submission_name] = the_submission
+            
+            for submission_id in the_submission:                
                 # check general validity of participant's submissions
                 if check_submission(participant_name, submission_name, submission_id, configuration):
                     # check whether submission needs testing
                     if not exists_and_equals("checked",
-                                             submission[participant_name][submission_id],
+                                             the_submission[submission_id],
                                              True):
                         test_assignments.append((submission_name, submission_id))
                 else:
@@ -548,7 +559,7 @@ def main( args ):
     #   setup conda environments 
     #   and compile if necessary
     for (submission_name, submission_id) in test_assignments:
-        submission=configuration["submissions"][submission_name][participant_name][submission_id]
+        submission=configuration["submissions"][participant_name][submission_name][submission_id]
         assignment=lookup_assignment(submission_name,configuration)
         if (not args.skip_depends and 
             not create_conda_env(submission, the_conda_environments, configuration)):
