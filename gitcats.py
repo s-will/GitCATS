@@ -214,10 +214,15 @@ def create_conda_env(submission, the_conda_environments, configuration):
 
         logging.debug("Setup conda environment for "+language_name+" in "+conda_env_name)
 
+        def singlequote(s):
+            return " ".join(map( lambda x: "'"+x+"'", s.split(" ")))
+
         conda_create_command="conda create"
         if not logging.getLogger().isEnabledFor(logging.DEBUG):
             conda_create_command += " >/dev/null"
-        conda_create_command += " -y -n "+conda_env_name+" "+language["conda-install"]
+        conda_create_command += " -y -n "+conda_env_name+" "+singlequote(language["conda-install"])
+
+        logging.debug("  by running "+conda_create_command)
 
         try:
             subprocess.check_call(conda_create_command, shell=True)
@@ -672,7 +677,7 @@ if __name__=="__main__":
 
     numeric_loglevel = getattr(logging, args.loglevel.upper(), None)
     if not isinstance(numeric_loglevel, int):
-        raise ValueError('Invalid log level: {}'.format(loglevel))
+        raise ValueError('Invalid log level: {}'.format(args.loglevel))
     logging.basicConfig(level=numeric_loglevel,
                         format='[%(levelname)s]\t%(message)s'
     )
